@@ -32,4 +32,20 @@ public class Account {
 
     @Column(name = "is_locked")
     private Boolean locked;
+
+    public Integer getAccountNumber() {
+        return accountNumber;
+    }
+
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public String getAccountType() {
+        return accountType;
+    }
+
+    public BigDecimal getBalance() {
+        return balance;
+    }
 }

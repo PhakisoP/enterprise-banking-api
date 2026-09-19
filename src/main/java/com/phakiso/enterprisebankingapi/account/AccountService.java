@@ -11,8 +11,15 @@ public class AccountService {
         this.accountRepository = accountRepository;
     }
 
-    public Account getAccountByAccountNumber(Integer accountNumber) {
-        return accountRepository.findById(accountNumber)
+    public AccountResponse getAccountByAccountNumber(Integer accountNumber) {
+        Account account = accountRepository.findById(accountNumber)
                 .orElseThrow();
+
+        return new AccountResponse(
+                account.getAccountNumber(),
+                account.getCustomerId(),
+                account.getAccountType(),
+                account.getBalance()
+        );
     }
 }
