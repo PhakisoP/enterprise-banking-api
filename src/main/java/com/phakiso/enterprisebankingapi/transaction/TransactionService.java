@@ -13,7 +13,17 @@ public class TransactionService {
         this.transactionRepository = transactionRepository;
     }
 
-    public List<Transaction> getTransactionsByAccountNumber(Integer accountNumber) {
-        return transactionRepository.findByAccountNumber(accountNumber);
+    public List<TransactionResponse> getTransactionsByAccountNumber(Integer accountNumber) {
+        return transactionRepository.findByAccountNumber(accountNumber)
+                .stream()
+                .map(transaction -> new TransactionResponse(
+                        transaction.getTransactionId(),
+                        transaction.getAccountNumber(),
+                        transaction.getTransactionType(),
+                        transaction.getAmount(),
+                        transaction.getBalanceAfter(),
+                        transaction.getTransactionDate()
+                ))
+                .toList();
     }
 }
