@@ -34,6 +34,23 @@ public class Transaction {
     @Column(name = "transaction_date")
     private LocalDateTime transactionDate;
 
+    protected Transaction() {
+    }
+
+    public Transaction(
+            Integer accountNumber,
+            String transactionType,
+            BigDecimal amount,
+            BigDecimal balanceAfter,
+            LocalDateTime transactionDate
+    ) {
+        this.accountNumber = accountNumber;
+        this.transactionType = transactionType;
+        this.amount = amount;
+        this.balanceAfter = balanceAfter;
+        this.transactionDate = transactionDate;
+    }
+
     public Integer getTransactionId() {
         return transactionId;
     }
