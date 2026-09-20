@@ -1,5 +1,7 @@
 package com.phakiso.enterprisebankingapi.account;
 
+import java.math.BigDecimal;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,5 +23,14 @@ public class AccountService {
                 account.getAccountType(),
                 account.getBalance()
         );
+    }
+
+    public void deposit(Integer accountNumber, BigDecimal amount) {
+        Account account = accountRepository.findById(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException(accountNumber));
+
+        account.deposit(amount);
+
+        accountRepository.save(account);
     }
 }
