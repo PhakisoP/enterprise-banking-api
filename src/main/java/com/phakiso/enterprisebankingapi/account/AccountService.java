@@ -4,13 +4,20 @@ import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
 
+import com.phakiso.enterprisebankingapi.transaction.TransactionService;
+
 @Service
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final TransactionService transactionService;
 
-    public AccountService(AccountRepository accountRepository) {
+    public AccountService(
+            AccountRepository accountRepository,
+            TransactionService transactionService
+    ) {
         this.accountRepository = accountRepository;
+        this.transactionService = transactionService;
     }
 
     public AccountResponse getAccountByAccountNumber(Integer accountNumber) {
@@ -32,5 +39,12 @@ public class AccountService {
         account.deposit(amount);
 
         accountRepository.save(account);
+
+        transactionService.createTransaction(
+                accountNumber,
+                "Deposit",
+                amount,
+                account.getBalance()
+        );
     }
 }
