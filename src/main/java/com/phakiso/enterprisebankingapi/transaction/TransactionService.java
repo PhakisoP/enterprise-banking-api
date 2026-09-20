@@ -1,8 +1,10 @@
 package com.phakiso.enterprisebankingapi.transaction;
 
-import org.springframework.stereotype.Service;
-
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+
+import org.springframework.stereotype.Service;
 
 @Service
 public class TransactionService {
@@ -25,5 +27,22 @@ public class TransactionService {
                         transaction.getTransactionDate()
                 ))
                 .toList();
+    }
+
+    public Transaction createTransaction(
+            Integer accountNumber,
+            String transactionType,
+            BigDecimal amount,
+            BigDecimal balanceAfter
+    ) {
+        Transaction transaction = new Transaction(
+                accountNumber,
+                transactionType,
+                amount,
+                balanceAfter,
+                LocalDateTime.now()
+        );
+
+        return transactionRepository.save(transaction);
     }
 }
