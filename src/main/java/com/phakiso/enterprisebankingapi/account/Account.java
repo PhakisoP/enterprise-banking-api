@@ -48,4 +48,8 @@ public class Account {
     public BigDecimal getBalance() {
         return balance;
     }
+
+    public void deposit(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
+    }
 }
