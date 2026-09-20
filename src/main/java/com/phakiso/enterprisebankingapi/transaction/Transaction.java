@@ -33,4 +33,28 @@ public class Transaction {
 
     @Column(name = "transaction_date")
     private LocalDateTime transactionDate;
+
+    public Integer getTransactionId() {
+        return transactionId;
+    }
+
+    public Integer getAccountNumber() {
+        return accountNumber;
+    }
+
+    public String getTransactionType() {
+        return transactionType;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public BigDecimal getBalanceAfter() {
+        return balanceAfter;
+    }
+
+    public LocalDateTime getTransactionDate() {
+        return transactionDate;
+    }
 }
