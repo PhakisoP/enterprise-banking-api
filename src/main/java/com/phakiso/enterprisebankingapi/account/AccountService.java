@@ -13,7 +13,7 @@ public class AccountService {
 
     public AccountResponse getAccountByAccountNumber(Integer accountNumber) {
         Account account = accountRepository.findById(accountNumber)
-                .orElseThrow();
+                .orElseThrow(() -> new AccountNotFoundException(accountNumber));
 
         return new AccountResponse(
                 account.getAccountNumber(),
