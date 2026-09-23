@@ -37,4 +37,18 @@ public class AccountController {
     ) {
         accountService.deposit(accountNumber, request.amount());
     }
+
+    /**
+     * Withdraws money from an account and records the resulting transaction.
+     *
+     * @param accountNumber the account receiving the withdrawal
+     * @param request the validated withdrawal request
+     */
+    @PostMapping("/{accountNumber}/withdrawals")
+    public void withdraw(
+            @PathVariable Integer accountNumber,
+            @Valid @RequestBody WithdrawalRequest request
+    ) {
+        accountService.withdraw(accountNumber, request.amount());
+    }
 }

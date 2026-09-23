@@ -49,4 +49,21 @@ public class AccountService {
                 account.getBalance()
         );
     }
+
+    @Transactional
+    public void withdraw(Integer accountNumber, BigDecimal amount) {
+        Account account = accountRepository.findById(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException(accountNumber));
+
+        account.withdraw(amount);
+
+        accountRepository.save(account);
+
+        transactionService.createTransaction(
+                accountNumber,
+                "Withdrawal",
+                amount,
+                account.getBalance()
+        );
+    }
 }

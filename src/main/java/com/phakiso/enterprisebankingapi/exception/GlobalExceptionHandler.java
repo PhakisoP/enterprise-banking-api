@@ -1,6 +1,7 @@
 package com.phakiso.enterprisebankingapi.exception;
 
 import com.phakiso.enterprisebankingapi.account.AccountNotFoundException;
+import com.phakiso.enterprisebankingapi.account.InsufficientFundsException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -30,6 +31,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
 
         problemDetail.setTitle("Account Not Found");
+        problemDetail.setDetail(exception.getMessage());
+
+        return problemDetail;
+    }
+
+    /**
+     * Handles withdrawal requests where the account does not have
+     * sufficient funds to complete the transaction.
+     */
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ProblemDetail handleInsufficientFunds(InsufficientFundsException exception) {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        problemDetail.setTitle("Insufficient Funds");
         problemDetail.setDetail(exception.getMessage());
 
         return problemDetail;

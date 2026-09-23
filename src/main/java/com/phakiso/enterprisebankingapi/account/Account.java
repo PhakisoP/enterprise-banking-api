@@ -52,4 +52,12 @@ public class Account {
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
+
+    public void withdraw(BigDecimal amount) {
+        if (this.balance.compareTo(amount) < 0) {
+            throw new InsufficientFundsException(this.accountNumber);
+        }
+
+        this.balance = this.balance.subtract(amount);
+    }
 }
