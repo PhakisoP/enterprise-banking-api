@@ -1,18 +1,26 @@
 package com.phakiso.enterprisebankingapi.exception;
 
 import com.phakiso.enterprisebankingapi.account.AccountNotFoundException;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Converts application and request validation errors into
+ * Converts application and Spring MVC validation errors into
  * consistent HTTP ProblemDetail responses.
  */
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * Handles requests for accounts that do not exist.
@@ -30,15 +38,17 @@ public class GlobalExceptionHandler {
     /**
      * Handles validation failures on incoming request bodies.
      */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(
-            MethodArgumentNotValidException exception
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
     ) {
         var fieldError = exception.getBindingResult()
                 .getFieldError();
 
-        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
-
+        ProblemDetail problemDetail = ProblemDetail.forStatus(status);
         problemDetail.setTitle("Validation Failed");
 
         if (fieldError != null) {
@@ -48,6 +58,8 @@ public class GlobalExceptionHandler {
             problemDetail.setDetail("Request validation failed");
         }
 
-        return problemDetail;
+        return ResponseEntity.status(status)
+                .headers(headers)
+                .body(problemDetail);
     }
 }
