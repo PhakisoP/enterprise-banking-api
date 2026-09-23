@@ -3,6 +3,7 @@ package com.phakiso.enterprisebankingapi.account;
 import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.phakiso.enterprisebankingapi.transaction.TransactionService;
 
@@ -32,6 +33,7 @@ public class AccountService {
         );
     }
 
+    @Transactional
     public void deposit(Integer accountNumber, BigDecimal amount) {
         Account account = accountRepository.findById(accountNumber)
                 .orElseThrow(() -> new AccountNotFoundException(accountNumber));
