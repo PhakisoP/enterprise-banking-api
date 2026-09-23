@@ -6,5 +6,7 @@ import java.util.List;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Integer> {
 
-    List<Transaction> findByAccountNumber(Integer accountNumber);
+    List<Transaction> findByAccountNumberOrderByTransactionDateDesc(
+            Integer accountNumber
+    );
 }

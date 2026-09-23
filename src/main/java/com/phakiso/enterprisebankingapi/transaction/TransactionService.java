@@ -16,7 +16,8 @@ public class TransactionService {
     }
 
     public List<TransactionResponse> getTransactionsByAccountNumber(Integer accountNumber) {
-        return transactionRepository.findByAccountNumber(accountNumber)
+        return transactionRepository
+                .findByAccountNumberOrderByTransactionDateDesc(accountNumber)
                 .stream()
                 .map(transaction -> new TransactionResponse(
                         transaction.getTransactionId(),
