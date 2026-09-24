@@ -2,6 +2,7 @@ package com.phakiso.enterprisebankingapi.exception;
 
 import com.phakiso.enterprisebankingapi.account.AccountNotFoundException;
 import com.phakiso.enterprisebankingapi.account.InsufficientFundsException;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -46,6 +47,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         problemDetail.setTitle("Insufficient Funds");
         problemDetail.setDetail(exception.getMessage());
+
+        return problemDetail;
+    }
+
+    /**
+     * Handles concurrent updates where another request modified
+     * the account before the current transaction could complete.
+     */
+    @ExceptionHandler(OptimisticLockException.class)
+    public ProblemDetail handleOptimisticLockingFailure(
+            OptimisticLockException exception
+    ) {
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+        problemDetail.setTitle("Concurrent Update Conflict");
+        problemDetail.setDetail(
+                "The account was modified by another request. Please retry the operation."
+        );
 
         return problemDetail;
     }
