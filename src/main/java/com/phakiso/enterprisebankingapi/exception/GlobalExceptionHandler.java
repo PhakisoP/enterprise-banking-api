@@ -4,6 +4,7 @@ import com.phakiso.enterprisebankingapi.account.AccountNotFoundException;
 import com.phakiso.enterprisebankingapi.account.InsufficientFundsException;
 import com.phakiso.enterprisebankingapi.account.InvalidTransferException;
 import jakarta.persistence.OptimisticLockException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -64,9 +65,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * Handles concurrent updates where another request modified
      * the account before the current transaction could complete.
      */
-    @ExceptionHandler(OptimisticLockException.class)
+    @ExceptionHandler({
+            OptimisticLockException.class,
+            OptimisticLockingFailureException.class
+    })
     public ProblemDetail handleOptimisticLockingFailure(
-            OptimisticLockException exception
+            RuntimeException exception
     ) {
         ProblemDetail problemDetail =
                 ProblemDetail.forStatus(HttpStatus.CONFLICT);
