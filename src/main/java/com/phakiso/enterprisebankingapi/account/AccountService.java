@@ -66,4 +66,41 @@ public class AccountService {
                 account.getBalance()
         );
     }
+
+    @Transactional
+    public void transfer(
+            Integer sourceAccountNumber,
+            Integer destinationAccountNumber,
+            BigDecimal amount
+    ) {
+        if (sourceAccountNumber.equals(destinationAccountNumber)) {
+            throw new InvalidTransferException(
+                    "Choose a different destination account."
+            );
+        }
+
+        Account source = accountRepository.findById(sourceAccountNumber)
+                .orElseThrow(() -> new AccountNotFoundException(sourceAccountNumber));
+        Account destination = accountRepository.findById(destinationAccountNumber)
+                .orElseThrow(() -> new AccountNotFoundException(destinationAccountNumber));
+
+        source.withdraw(amount);
+        destination.deposit(amount);
+
+        accountRepository.save(source);
+        accountRepository.save(destination);
+
+        transactionService.createTransaction(
+                sourceAccountNumber,
+                "Transfer Out",
+                amount,
+                source.getBalance()
+        );
+        transactionService.createTransaction(
+                destinationAccountNumber,
+                "Transfer In",
+                amount,
+                destination.getBalance()
+        );
+    }
 }

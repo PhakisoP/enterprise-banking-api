@@ -51,4 +51,17 @@ public class AccountController {
     ) {
         accountService.withdraw(accountNumber, request.amount());
     }
+
+    /** Transfers funds from this account to another account atomically. */
+    @PostMapping("/{accountNumber}/transfers")
+    public void transfer(
+            @PathVariable Integer accountNumber,
+            @Valid @RequestBody TransferRequest request
+    ) {
+        accountService.transfer(
+                accountNumber,
+                request.destinationAccountNumber(),
+                request.amount()
+        );
+    }
 }

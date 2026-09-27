@@ -2,6 +2,7 @@ package com.phakiso.enterprisebankingapi.exception;
 
 import com.phakiso.enterprisebankingapi.account.AccountNotFoundException;
 import com.phakiso.enterprisebankingapi.account.InsufficientFundsException;
+import com.phakiso.enterprisebankingapi.account.InvalidTransferException;
 import jakarta.persistence.OptimisticLockException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -48,6 +49,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problemDetail.setTitle("Insufficient Funds");
         problemDetail.setDetail(exception.getMessage());
 
+        return problemDetail;
+    }
+
+    @ExceptionHandler(InvalidTransferException.class)
+    public ProblemDetail handleInvalidTransfer(InvalidTransferException exception) {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problemDetail.setTitle("Invalid Transfer");
+        problemDetail.setDetail(exception.getMessage());
         return problemDetail;
     }
 

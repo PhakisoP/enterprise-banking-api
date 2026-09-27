@@ -9,8 +9,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.never;
@@ -86,6 +86,64 @@ class AccountControllerTest {
                 888888,
                 new BigDecimal("500.00")
         );
+    }
+
+    @Test
+    void transfer_shouldCallAccountService() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/accounts/888888/transfers")
+                                .contentType("application/json")
+                                .content("""
+                                    {
+                                        "destinationAccountNumber": 999999,
+                                        "amount": 250.00
+                                    }
+                                    """)
+                )
+                .andExpect(status().isOk());
+
+        verify(accountService).transfer(888888, 999999, new BigDecimal("250.00"));
+    }
+
+    @Test
+    void transfer_shouldRejectInvalidDestinationAndAmount() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/accounts/888888/transfers")
+                                .contentType("application/json")
+                                .content("""
+                                    { "destinationAccountNumber": 0, "amount": 250.00 }
+                                    """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("destinationAccountNumber"));
+
+        mockMvc.perform(
+                        post("/api/v1/accounts/888888/transfers")
+                                .contentType("application/json")
+                                .content("""
+                                    { "destinationAccountNumber": 999999, "amount": 0 }
+                                    """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("amount"));
+
+        verify(accountService, never()).transfer(anyInt(), anyInt(), any(BigDecimal.class));
+    }
+
+    @Test
+    void transfer_shouldReturnBadRequestWhenServiceRejectsTransfer() throws Exception {
+        org.mockito.Mockito.doThrow(new InvalidTransferException("Choose a different destination account."))
+                .when(accountService).transfer(888888, 888888, new BigDecimal("25.00"));
+
+        mockMvc.perform(
+                        post("/api/v1/accounts/888888/transfers")
+                                .contentType("application/json")
+                                .content("""
+                                    { "destinationAccountNumber": 888888, "amount": 25.00 }
+                                    """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid Transfer"));
     }
 
     @Test

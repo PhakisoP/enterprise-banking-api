@@ -127,16 +127,69 @@ class AccountServiceTest {
         );
     }
 
+    @Test
+    void transfer_shouldDebitAndCreditBothAccountsAndRecordBothTransactions() throws Exception {
+        Account source = createAccount();
+        Account destination = createAccount(999999, new BigDecimal("2000.00"));
+        when(accountRepository.findById(999999))
+                .thenReturn(java.util.Optional.of(destination));
+
+        accountService.transfer(888888, 999999, new BigDecimal("250.00"));
+
+        assertEquals(new BigDecimal("30750.00"), source.getBalance());
+        assertEquals(new BigDecimal("2250.00"), destination.getBalance());
+        verify(accountRepository).save(source);
+        verify(accountRepository).save(destination);
+        verify(transactionService).createTransaction(
+                888888, "Transfer Out", new BigDecimal("250.00"),
+                new BigDecimal("30750.00")
+        );
+        verify(transactionService).createTransaction(
+                999999, "Transfer In", new BigDecimal("250.00"),
+                new BigDecimal("2250.00")
+        );
+    }
+
+    @Test
+    void transfer_shouldRejectTheSameAccount() {
+        assertThrows(
+                InvalidTransferException.class,
+                () -> accountService.transfer(888888, 888888, new BigDecimal("1.00"))
+        );
+
+        verifyNoInteractions(accountRepository, transactionService);
+    }
+
+    @Test
+    void transfer_shouldNotCreditDestinationWhenSourceHasInsufficientFunds() throws Exception {
+        Account source = createAccount();
+        Account destination = createAccount(999999, new BigDecimal("2000.00"));
+        when(accountRepository.findById(999999))
+                .thenReturn(java.util.Optional.of(destination));
+
+        assertThrows(
+                InsufficientFundsException.class,
+                () -> accountService.transfer(888888, 999999, new BigDecimal("50000.00"))
+        );
+
+        assertEquals(new BigDecimal("31000.00"), source.getBalance());
+        assertEquals(new BigDecimal("2000.00"), destination.getBalance());
+        verify(accountRepository, never()).save(any(Account.class));
+        verifyNoInteractions(transactionService);
+    }
+
 
     private Account createAccount() throws Exception {
-        Account account = new Account();
-
-        setField(account, "accountNumber", 888888);
-        setField(account, "balance", new BigDecimal("31000.00"));
-
+        Account account = createAccount(888888, new BigDecimal("31000.00"));
         when(accountRepository.findById(888888))
                 .thenReturn(java.util.Optional.of(account));
+        return account;
+    }
 
+    private Account createAccount(Integer accountNumber, BigDecimal balance) throws Exception {
+        Account account = new Account();
+        setField(account, "accountNumber", accountNumber);
+        setField(account, "balance", balance);
         return account;
     }
 
