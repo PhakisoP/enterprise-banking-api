@@ -96,9 +96,15 @@ Provides persistence through Spring Data JPA.
 
 ### Database layer
 
-MySQL stores account and transaction data.
+## Database Architecture
 
-Flyway manages database schema migrations.
+The Enterprise Banking API uses a relational MySQL database with separate entities for customers, accounts, and transactions.
+
+The schema also includes an optimistic-locking version column on accounts to protect account balance updates from concurrent modifications.
+
+![Enterprise Banking Database ERD](docs/database-erd.png)
+
+The ERD documents the relationships between customers, accounts, and transactions and reflects the persistence model used by the application.
 
 ---
 
