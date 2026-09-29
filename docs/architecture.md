@@ -527,3 +527,5 @@ The architecture is intended to provide:
 * Clear documentation for future development
 
 The application is intentionally being developed incrementally, with production-oriented design decisions introduced as the project evolves.
+
+![Enterprise Banking System Architecture Diagram](img.png)
