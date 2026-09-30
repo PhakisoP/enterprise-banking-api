@@ -1,531 +1,118 @@
-# Enterprise Banking API — Architecture
+# Enterprise Banking Application Architecture
 
-## 1. Purpose
+## Purpose and scope
 
-The Enterprise Banking API is a Spring Boot REST backend for a full-stack banking application.
+This guide describes the current portfolio application: a React and Vite frontend, a Spring Boot REST API, and a MySQL database. It focuses on the code and schema that exist today. The application demonstrates common full-stack patterns and basic account operations; it is not a real banking service and does not implement user authentication or authorization.
 
-The application is designed around clear separation of responsibilities, transactional integrity, database persistence, validation, consistent error handling, optimistic locking, and environment-specific configuration.
+## System overview
 
----
-
-## 2. High-Level Architecture
-
-The application follows a layered architecture:
-
-```text
-Client
-  |
-  v
-REST Controller
-  |
-  v
-Service Layer
-  |
-  v
-Repository Layer
-  |
-  v
-Database
+```mermaid
+flowchart LR
+    Browser[Browser<br/>React and Vite]
+    API[Spring Boot REST API<br/>Java 25]
+    Controller[Controllers<br/>HTTP and request validation]
+    Service[Services<br/>Account and transaction rules]
+    Repository[Spring Data JPA repositories]
+    Hibernate[Hibernate ORM]
+    MySQL[(MySQL)]
+    Flyway[Flyway migrations]
+    Browser <-->|HTTP and JSON| API
+    API --> Controller --> Service --> Repository --> Hibernate --> MySQL
+    Flyway --> MySQL
 ```
 
-Supporting components provide cross-cutting functionality:
+The web app reads account details and transaction history and submits deposits, withdrawals, and transfers. The API owns the account rules and persistence. The browser never connects directly to MySQL. Flyway creates and evolves the schema; Hibernate maps Java entities to rows and checks that the schema matches the mappings.
 
-```text
-                    +----------------------+
-                    |   REST Controllers   |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |    Service Layer     |
-                    | Business Logic       |
-                    | Transactions         |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |  Repository Layer    |
-                    | Spring Data JPA      |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |   MySQL Database     |
-                    +----------------------+
+## Request flow
 
-Supporting components:
-
-- Global exception handling
-- Request validation
-- Optimistic locking
-- Flyway migrations
-- OpenAPI documentation
-- Environment configuration
-- Automated integration testing
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React frontend
+    participant Controller as Spring MVC controller
+    participant Service as AccountService
+    participant Repository as Spring Data JPA
+    participant DB as MySQL
+    User->>UI: Submit transfer form
+    UI->>Controller: POST transfer request (JSON)
+    Controller->>Controller: Validate request fields
+    Controller->>Service: transfer(source, destination, amount)
+    Service->>Repository: Load both accounts
+    Repository->>DB: Read accounts
+    DB-->>Repository: Account rows
+    Repository-->>Service: Account entities
+    Service->>Service: Check rules and update balances
+    Service->>Repository: Save account updates and transaction records
+    Repository->>DB: Persist within the service transaction
+    DB-->>Service: Commit or report failure
+    Service-->>Controller: Complete or raise an error
+    Controller-->>UI: HTTP response or ProblemDetail
+    UI->>Controller: Refresh account and transaction history
+    Controller-->>UI: Updated JSON data
 ```
 
----
-
-## 3. Package Structure
-
-The main application packages are organised by responsibility:
-
-```text
-com.phakiso.enterprisebankingapi
-|
-+-- account
-|   +-- Account
-|   +-- AccountController
-|   +-- AccountRepository
-|   +-- AccountService
-|   +-- AccountResponse
-|   +-- DepositRequest
-|   +-- WithdrawalRequest
-|   +-- TransferRequest
-|   +-- AccountNotFoundException
-|   +-- InsufficientFundsException
-|   +-- InvalidTransferException
-|
-+-- config
-|   +-- OpenApiConfig
-|   +-- WebConfig
-|
-+-- exception
-|   +-- GlobalExceptionHandler
-|
-+-- transaction
-    +-- Transaction
-    +-- TransactionController
-    +-- TransactionRepository
-    +-- TransactionService
-    +-- TransactionResponse
-```
-
-This structure keeps account operations, transaction operations, configuration, and exception handling separated.
-
----
+The frontend tracks loading and error state while requests are in flight. It can reject obviously invalid form input for a better user experience, but the API remains authoritative and validates requests independently.
 
-## 4. Controller Layer
+## Backend layers
 
-Controllers are responsible for the HTTP/API boundary.
+| Layer | Current responsibility |
+| --- | --- |
+| `AccountController`, `TransactionController` | Map HTTP routes, validate request DTOs, call services, and return API responses. |
+| `AccountService` | Retrieve account details and coordinate deposits, withdrawals, and transfers. |
+| `TransactionService` | Create transaction records and retrieve account history. During money operations it is called within the surrounding `AccountService` transaction. |
+| `AccountRepository`, `TransactionRepository` | Read and save entities through Spring Data JPA. |
+| `Account`, `Transaction` | JPA entities mapped to the two tables. `Account` uses `@Version` for optimistic locking. |
+| `GlobalExceptionHandler` | Converts validation, missing-account, insufficient-funds, invalid-transfer, and optimistic-locking errors into HTTP error responses, using `ProblemDetail`. |
 
-Their responsibilities include:
-
-* Receiving HTTP requests
-* Mapping request data into application objects
-* Applying request validation
-* Calling the appropriate service
-* Returning HTTP responses
-* Exposing API documentation metadata
+The request DTOs are `DepositRequest`, `WithdrawalRequest`, and `TransferRequest`. Response DTOs keep API output separate from persistence entities.
 
-Controllers do not contain the core banking business logic.
+## Money operations and consistency
 
-For example:
+`AccountService.deposit`, `withdraw`, and `transfer` use `@Transactional`. Each operation changes the relevant account balance and creates its transaction record or records within the same database transaction. A transfer changes both accounts and records a `Transfer Out` and a `Transfer In`. If the operation fails, the database transaction rolls back so it does not retain only part of the operation.
 
-```text
-HTTP Request
-     |
-     v
-AccountController
-     |
-     v
-AccountService
-```
+Amounts are represented as Java `BigDecimal` and stored in MySQL `DECIMAL(19,2)` columns. `Account` has a JPA `@Version` field. Hibernate uses that value when updating an account; a stale concurrent update is rejected and the API maps the conflict to HTTP 409.
 
-This keeps the HTTP layer separate from the business layer.
+## Database schema
 
----
+The two current tables are created by Flyway migrations under `src/main/resources/db/migration/`:
 
-## 5. Service Layer
+| Table | Current role and key columns |
+| --- | --- |
+| `accounts` | One row per account. `account_number` is the primary key. The row also has `customer_id`, `account_type`, `balance`, `version`, and the existing `pin`, `failed_attempts`, and `is_locked` columns. The application does not currently define a separate Customer entity or a login flow. |
+| `transactions` | One row per recorded operation. `transaction_id` is the primary key; other columns include `account_number`, `transaction_type`, `amount`, `balance_after`, and `transaction_date`. |
 
-The service layer contains the application's banking business logic.
+`customer_id` is a value stored on the account; there is no `customers` table in the current migration. Likewise, `transactions.account_number` is used by the application to find an account's history, but the current migration does not declare it as a database foreign key. This distinction matters when describing the actual schema.
 
-`AccountService` handles operations including:
+### Fresh database startup
 
-* Retrieving account information
-* Depositing funds
-* Withdrawing funds
-* Transferring funds between accounts
+1. Create the MySQL database and configure the API connection with environment variables.
+2. Start the Spring Boot application. Flyway checks its schema history and applies pending migrations in version order: V1 creates `accounts` and `transactions`; V2 adds `accounts.version` with a default value.
+3. Hibernate starts with `ddl-auto: validate`, which checks the entity mappings against the resulting schema without creating or changing tables.
+4. The API begins serving requests if database connection, migrations, and schema validation succeed.
 
-The service layer also defines transaction boundaries using Spring's `@Transactional`.
+The migrations create tables but do not seed demonstration accounts. A local developer can insert sample accounts when trying the UI; the API README contains an example.
 
-For example, a transfer consists of multiple related operations:
+## Configuration and supporting behavior
 
-```text
-Transfer Request
-      |
-      v
-Find source account
-      |
-      v
-Find destination account
-      |
-      v
-Withdraw from source
-      |
-      v
-Deposit into destination
-      |
-      v
-Save source
-      |
-      v
-Save destination
-      |
-      v
-Create transaction records
-```
+- `src/main/resources/application.yaml` contains the main configuration. Database URL, username, password, and allowed CORS origin can be supplied through `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `APP_CORS_ALLOWED_ORIGIN`.
+- CORS allows one configured frontend origin for `/api/**`. The local default is `http://localhost:5173`.
+- `SecurityHeadersFilter` sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` response headers. These headers do not provide authentication or authorization.
+- Actuator exposes health information only; health probes are enabled.
+- Springdoc API docs and Swagger UI are enabled by default and can be disabled through `SPRINGDOC_API_DOCS_ENABLED` and `SPRINGDOC_SWAGGER_UI_ENABLED`. The `application-prod.yaml` profile disables them by default and requires the database and CORS settings through environment variables.
+- Local secrets belong in developer environment configuration, not committed source files. Frontend `VITE_` variables are bundled into browser code and must contain non-secret values only.
 
-These operations execute within a database transaction.
+## Testing and CI
 
-If a failure occurs during the operation, the transaction can roll back rather than leaving the accounts in a partially updated state.
+The API test profile uses an isolated in-memory H2 database, disables Flyway, and uses Hibernate `create-drop`. It does not test migrations against MySQL. The project record separately documents a completed manual fresh-MySQL startup verification.
 
----
+The API GitHub Actions workflow runs the Maven `verify` lifecycle on pushes and pull requests targeting `main`. The web workflow installs with `npm ci`, then runs lint, tests, and a production build. These workflows provide repeatable checks; they do not deploy the application.
 
-## 6. Repository Layer
+## Security scope and limitations
 
-The repository layer provides database persistence through Spring Data JPA.
+The application has no authentication or authorization. The UI is configured to display one account number, but that configuration is not an identity or access-control mechanism. Do not use real account credentials, personal data, or money with this portfolio application. A real banking product would require a separately designed and reviewed security, audit, operations, and compliance model.
 
-Repositories are responsible for persistence operations rather than business decisions.
+## Related project documentation
 
-The application currently uses repositories for:
-
-* Accounts
-* Transactions
-
-The service layer communicates with repositories rather than directly managing database connections.
-
-This separation allows persistence concerns to remain isolated from banking business logic.
-
----
-
-## 7. Database
-
-The production application uses MySQL.
-
-The application is configured to validate the database schema rather than automatically modifying it:
-
-```yaml
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: validate
-```
-
-This prevents Hibernate from silently changing the production database schema.
-
-Database schema changes are managed through Flyway migrations.
-
-Current migrations are located under:
-
-```text
-src/main/resources/db/migration/
-```
-
----
-
-## 8. Database Migrations
-
-Flyway is used to manage database schema evolution.
-
-Migration files follow Flyway's versioned migration convention.
-
-Example:
-
-```text
-V2__add_account_version.sql
-```
-
-The application therefore separates:
-
-```text
-Application code
-       |
-       v
-Flyway migrations
-       |
-       v
-Database schema
-```
-
-This provides a repeatable mechanism for evolving the database schema across environments.
-
----
-
-## 9. Transaction Management
-
-Financial operations require atomicity.
-
-Deposits and withdrawals update an account and create a corresponding transaction record.
-
-Transfers involve two account updates and two transaction records.
-
-The service layer therefore uses Spring transaction management.
-
-Conceptually:
-
-```text
-BEGIN TRANSACTION
-
-Update source account
-Update destination account
-Create source transaction
-Create destination transaction
-
-COMMIT
-```
-
-If an operation fails:
-
-```text
-BEGIN TRANSACTION
-
-Update source account
-Update destination account
-Create transaction
-       |
-       X
-     ERROR
-
-ROLLBACK
-```
-
-This prevents partially completed financial operations.
-
----
-
-## 10. Optimistic Locking
-
-The account entity uses optimistic locking to protect against conflicting concurrent updates.
-
-The account version is maintained by JPA using the entity's version field.
-
-Conceptually:
-
-```text
-Request A                 Request B
-    |                         |
-Read version 5          Read version 5
-    |                         |
-Update account          Update account
-    |                         |
-Write version 6         Attempt version 5
-                              |
-                              X
-                         Conflict detected
-```
-
-The second conflicting update is rejected instead of silently overwriting the first update.
-
-The API also contains handling for optimistic locking conflicts so that concurrency failures can be returned as controlled HTTP responses.
-
----
-
-## 11. Validation
-
-Incoming API requests are validated before reaching the core banking operations.
-
-Validation helps ensure that invalid requests do not enter the business layer.
-
-Examples include:
-
-* Invalid or missing account information
-* Invalid transaction amounts
-* Invalid transfer requests
-
-Business rules that depend on the current account state remain within the service/domain layer.
-
----
-
-## 12. Exception Handling
-
-The application uses a global exception handler:
-
-```text
-GlobalExceptionHandler
-```
-
-The handler provides consistent HTTP error responses for application exceptions.
-
-This prevents individual controllers from having to duplicate exception-response logic.
-
-The general flow is:
-
-```text
-Exception
-   |
-   v
-GlobalExceptionHandler
-   |
-   v
-Consistent HTTP Error Response
-```
-
----
-
-## 13. Configuration
-
-The application separates default development configuration from production configuration.
-
-### Development
-
-```text
-src/main/resources/application.yaml
-```
-
-Development configuration uses local MySQL settings and provides development-friendly defaults.
-
-Sensitive values such as database passwords are supplied through environment variables.
-
-### Production
-
-```text
-src/main/resources/application-prod.yaml
-```
-
-Production configuration expects environment-specific values such as:
-
-```text
-DB_URL
-DB_USERNAME
-DB_PASSWORD
-APP_CORS_ALLOWED_ORIGIN
-SPRINGDOC_API_DOCS_ENABLED
-SPRINGDOC_SWAGGER_UI_ENABLED
-```
-
-Credentials and deployment-specific values are therefore kept outside source control.
-
----
-
-## 14. CORS
-
-CORS configuration is externalised through:
-
-```text
-APP_CORS_ALLOWED_ORIGIN
-```
-
-This allows the API to support different frontend origins without changing application code.
-
-For local development, the default frontend origin is:
-
-```text
-http://localhost:5173
-```
-
-Production deployments can provide their own allowed origin through the environment.
-
----
-
-## 15. API Documentation
-
-OpenAPI documentation is provided through Springdoc.
-
-The application exposes:
-
-```text
-/api/v1/...
-```
-
-API documentation can be enabled or disabled through configuration.
-
-Development defaults enable the OpenAPI documentation and Swagger UI, while the production profile disables them by default.
-
-This keeps development convenient while avoiding unnecessary public documentation exposure in a production deployment.
-
----
-
-## 16. Testing Architecture
-
-The project contains automated tests covering multiple application layers.
-
-The test suite includes:
-
-* Application context testing
-* Controller testing
-* Service testing
-* API integration testing
-* Optimistic locking testing
-* HTTP optimistic locking testing
-* OpenAPI integration testing
-
-The test environment uses H2 rather than the production MySQL database.
-
-Test configuration is located at:
-
-```text
-src/test/resources/application-test.yaml
-```
-
-The test database is created and destroyed for the test lifecycle.
-
-This keeps automated tests isolated from the development database.
-
----
-
-## 17. Request Flow
-
-A typical account operation follows this architecture:
-
-```text
-Client
-  |
-  | HTTP request
-  v
-Controller
-  |
-  | validated request
-  v
-Service
-  |
-  | business rules
-  v
-Repository
-  |
-  | persistence operation
-  v
-Database
-```
-
-For a financial transaction:
-
-```text
-Client
-  |
-  v
-AccountController
-  |
-  v
-AccountService
-  |
-  +--------------------+
-  |                    |
-  v                    v
-AccountRepository   TransactionService
-  |                    |
-  v                    v
-Database <-------------+
-```
-
-The service layer coordinates the related operations within a transaction boundary.
-
----
-
-## 18. Design Goals
-
-The architecture is intended to provide:
-
-* Clear separation of responsibilities
-* Transactional integrity
-* Controlled database schema evolution
-* Safe concurrent account updates
-* Consistent API error handling
-* Environment-specific configuration
-* Automated verification
-* Maintainable project structure
-* Clear documentation for future development
-
-The application is intentionally being developed incrementally, with production-oriented design decisions introduced as the project evolves.
-
-![Enterprise Banking System Architecture Diagram](img.png)
+- [API setup and endpoint guide](../README.md)
+- [API request examples](api-examples.md)
+- [Web application and screenshots](https://github.com/PhakisoP/enterprise-banking-web)

@@ -53,7 +53,7 @@ Financial operations use Spring transaction management so related database chang
 | Spring MVC        | REST API                         |
 | Spring Data JPA   | Persistence abstraction          |
 | Hibernate         | ORM                              |
-| MySQL             | Production database              |
+| MySQL             | Application database             |
 | Flyway            | Database migrations              |
 | H2                | Test database                    |
 | Maven             | Build and dependency management  |
@@ -94,17 +94,33 @@ Contains banking business logic and transaction boundaries.
 
 Provides persistence through Spring Data JPA.
 
-### Database layer
-
 ## Database Architecture
 
-The API currently maps account and transaction records to MySQL tables. The account record includes a customer ID, but this project does not currently define a separate Customer entity.
+The API maps account and transaction records to MySQL tables. Accounts include a customer ID value and an optimistic-locking version column; there is no separate Customer entity.
 
-The schema also includes an optimistic-locking version column on accounts to protect account balance updates from concurrent modifications.
+The current schema has two tables. The diagram lists representative columns; `customer_id` and `transactions.account_number` are values in the current migration, not declared foreign keys.
 
-![Enterprise Banking Database ERD](docs/database-erd.png)
-
-The ERD is a database-level illustration. In the current JPA model, `customer_id` is stored on an account; there is no separate Customer entity.
+```mermaid
+erDiagram
+    accounts {
+        INT account_number PK
+        INT customer_id
+        VARCHAR account_type
+        DECIMAL balance
+        BIGINT version
+        VARCHAR pin
+        INT failed_attempts
+        BIT is_locked
+    }
+    transactions {
+        INT transaction_id PK
+        INT account_number
+        VARCHAR transaction_type
+        DECIMAL amount
+        DECIMAL balance_after
+        DATETIME transaction_date
+    }
+```
 
 ---
 
@@ -365,6 +381,15 @@ The API will start on:
 http://localhost:8080
 ```
 
+Flyway creates the schema but does not add demo accounts. After the first successful startup, add local sample records if you want to try the account endpoints and frontend:
+
+```sql
+INSERT INTO accounts (account_number, customer_id, account_type, balance)
+VALUES
+    (888888, 888888, 'Cheque', 31000.00),
+    (999999, 999999, 'Savings', 2000.00);
+```
+
 ---
 
 ## Verification
@@ -497,11 +522,7 @@ The API is being developed as the backend foundation for the Enterprise Banking 
 
 ## Related Project
 
-Frontend:
-
-```text
-enterprise-banking-web
-```
+Frontend: [Enterprise Banking Web](https://github.com/PhakisoP/enterprise-banking-web)
 
 The frontend is built with React and Vite and consumes this REST API.
 
