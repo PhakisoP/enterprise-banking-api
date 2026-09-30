@@ -268,7 +268,7 @@ A concurrent modification results in an appropriate conflict response rather tha
 
 ## Database
 
-The production application uses MySQL.
+The application uses MySQL.
 
 Database schema changes are managed through Flyway migrations located under:
 
@@ -283,11 +283,11 @@ V1__create_account_tables.sql
 V2__add_account_version.sql
 ```
 
-V1 creates the `accounts` and `transactions` tables. V2 adds the account version used for optimistic locking. The existing `baseline-on-migrate` setting supports databases whose tables were created before Flyway history was introduced; test profile uses an isolated H2 schema created by Hibernate and does not run Flyway migrations.
+V1 creates the `accounts` and `transactions` tables. V2 adds the account version used for optimistic locking. The existing `baseline-on-migrate` setting supports databases whose tables were created before Flyway history was introduced. Automated tests use an isolated H2 schema created by Hibernate and do not run Flyway migrations.
 
 ## Security Scope
 
-Database credentials are supplied through environment variables. CORS allows one configured frontend origin, and Actuator exposes only health information. The API does not implement login or authorization; authentication is intentionally outside this junior portfolio project's scope. Do not treat it as a production banking service.
+Database credentials are supplied through environment variables. CORS allows one configured frontend origin, and Actuator exposes only health information. The API does not implement login or authorization; authentication is intentionally outside this junior portfolio project's scope. This junior portfolio project is not a production banking service.
 
 ---
 
@@ -305,10 +305,16 @@ Test-specific configuration is located in:
 src/test/resources/application-test.yaml
 ```
 
-Environment-specific values should be supplied through environment variables rather than committed credentials.
+Environment-specific values should be supplied through environment variables rather than committed credentials:
 
-Database credentials and other environment-specific configuration should therefore remain outside source control.
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| DB_PASSWORD | Yes for a password-protected MySQL account | None | MySQL account password |
+| DB_URL | No | jdbc:mysql://localhost:3306/enterprise_banking | JDBC connection URL |
+| DB_USERNAME | No | root | MySQL account name |
+| APP_CORS_ALLOWED_ORIGIN | No | http://localhost:5173 | Allowed frontend origin |
 
+Never put a real password in source control or shell history. Set DB_PASSWORD in your local environment or secret manager. The .gitignore excludes local .env files; .env.example may contain placeholders only.
 ---
 
 ## OpenAPI Documentation
@@ -336,9 +342,14 @@ These endpoints can be used to explore and test the API interactively.
 ### Requirements
 
 * Java 25
-* Maven
 * MySQL
-* A configured `enterprise_banking` database
+* The included Maven wrapper (a separate Maven installation is not required)
+
+Create the database before starting the application. In your MySQL client, run:
+
+    CREATE DATABASE enterprise_banking;
+
+Set DB_PASSWORD in your local environment to the MySQL account password. The default connection uses root on localhost; set DB_USERNAME and/or DB_URL if your setup differs. Use placeholders only in examples; never commit a real password.
 
 ### Start the application
 
@@ -356,44 +367,25 @@ http://localhost:8080
 
 ---
 
-## Running Tests
+## Verification
 
-From the `enterprise-banking-api` directory:
+### Automated tests and full build
 
-```powershell
-.\mvnw.cmd test
-```
+Automated tests use the test profile's in-memory H2 database. Hibernate creates and drops that isolated schema; Flyway is disabled in this profile. These tests are separate from the completed manual MySQL verification below.
 
-The test suite covers unit, controller, database/integration, optimistic-locking, and OpenAPI behaviour.
+From the enterprise-banking-api directory, run:
 
-Retained Surefire reports from an earlier run show 31 passing tests. They are not a fresh verification of the current checkout; run the command above to verify it.
+    .\mvnw.cmd test
 
----
+This runs the automated test phase. Run the full Maven verification lifecycle, including tests and package checks, with:
 
-## Build Verification
+    .\mvnw.cmd verify
 
-The project can be verified with:
+Both commands should finish with BUILD SUCCESS.
 
-```powershell
-.\mvnw.cmd test
-```
+## Completed Manual MySQL Verification
 
-A successful build ends with:
-
-```text
-BUILD SUCCESS
-```
-
-Additional Git checks:
-
-```powershell
-git diff --check
-git status
-```
-
-The working tree should be clean before committing.
-
----
+Phase 8/9 manual verification is complete and accepted. The recorded evidence covers a completely fresh MySQL database, Spring Boot startup, Flyway V1 then V2, JPA schema validation, successful application startup, and `/actuator/health` returning HTTP 200. This is separate from the automated H2 test profile and is not being repeated.
 
 ## API Verification
 

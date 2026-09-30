@@ -3,8 +3,8 @@ spring:
     name: enterprise-banking-api
 
   datasource:
-    url: jdbc:mysql://localhost:3306/enterprise_banking
-    username: root
+    url: ${DB_URL:jdbc:mysql://localhost:3306/enterprise_banking}
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD}
 
   jpa:
