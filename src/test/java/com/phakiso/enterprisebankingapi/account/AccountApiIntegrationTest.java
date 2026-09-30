@@ -164,6 +164,11 @@ class AccountApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.field").value("amount"));
 
+        performPost("/api/v1/accounts/{accountNumber}/deposits", SOURCE_ACCOUNT,
+                "{\"amount\":1.001}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.field").value("amount"));
+
         assertBalance(SOURCE_ACCOUNT, "100.00");
         assertEquals(0L, transactionCount());
     }

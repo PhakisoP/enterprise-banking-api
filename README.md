@@ -1,6 +1,6 @@
 # Enterprise Banking API
 
-A production-oriented Spring Boot REST API for an enterprise-style banking application.
+A junior portfolio project demonstrating a Spring Boot REST API for a simple banking application.
 
 The API provides account management and financial transaction capabilities backed by MySQL, with transaction management, optimistic locking, request validation, consistent HTTP error responses, database migrations, automated integration testing, and OpenAPI documentation.
 
@@ -98,13 +98,13 @@ Provides persistence through Spring Data JPA.
 
 ## Database Architecture
 
-The Enterprise Banking API uses a relational MySQL database with separate entities for customers, accounts, and transactions.
+The API currently maps account and transaction records to MySQL tables. The account record includes a customer ID, but this project does not currently define a separate Customer entity.
 
 The schema also includes an optimistic-locking version column on accounts to protect account balance updates from concurrent modifications.
 
 ![Enterprise Banking Database ERD](docs/database-erd.png)
 
-The ERD documents the relationships between customers, accounts, and transactions and reflects the persistence model used by the application.
+The ERD is a database-level illustration. In the current JPA model, `customer_id` is stored on an account; there is no separate Customer entity.
 
 ---
 
@@ -171,7 +171,7 @@ Example response:
   "accountNumber": 888888,
   "customerId": 888888,
   "accountType": "Savings",
-  "balance": 35000.00
+  "balance": 49000.00
 }
 ```
 
@@ -276,13 +276,18 @@ Database schema changes are managed through Flyway migrations located under:
 src/main/resources/db/migration/
 ```
 
-Current migration:
+Migrations run in order on a new empty database:
 
 ```text
+V1__create_account_tables.sql
 V2__add_account_version.sql
 ```
 
-The migration adds the account version required for optimistic locking.
+V1 creates the `accounts` and `transactions` tables. V2 adds the account version used for optimistic locking. The existing `baseline-on-migrate` setting supports databases whose tables were created before Flyway history was introduced; test profile uses an isolated H2 schema created by Hibernate and does not run Flyway migrations.
+
+## Security Scope
+
+Database credentials are supplied through environment variables. CORS allows one configured frontend origin, and Actuator exposes only health information. The API does not implement login or authorization; authentication is intentionally outside this junior portfolio project's scope. Do not treat it as a production banking service.
 
 ---
 
@@ -361,7 +366,7 @@ From the `enterprise-banking-api` directory:
 
 The test suite covers unit, controller, database/integration, optimistic-locking, and OpenAPI behaviour.
 
-The current test suite contains **30 automated tests**, all passing.
+Retained Surefire reports from an earlier run show 31 passing tests. They are not a fresh verification of the current checkout; run the command above to verify it.
 
 ---
 
@@ -455,7 +460,7 @@ The generated OpenAPI documentation is verified as part of the automated test su
 
 ## Development History
 
-The project has evolved incrementally from a basic account API into a more production-oriented banking backend.
+The project has evolved incrementally from a basic account API into a junior full-stack portfolio backend.
 
 Major milestones include:
 
